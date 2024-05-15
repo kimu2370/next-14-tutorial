@@ -17,12 +17,15 @@ const FormSchema = z.object({
 const CreateInvoice = FormSchema.omit({ id: true, date: true });
 
 // api endpoint를 직접 만들지 않고 서버 액션으로 데이터 변형하기(mutating data)
-export async function createInvoice(formData: FormData) {
-  const { customerId, amount, status } = CreateInvoice.parse({
-    customerId: formData.get('customerId'),
-    amount: formData.get('amount'),
-    status: formData.get('status'),
-  });
+export const createInvoice = async (formData: FormData) => {
+  const { customerId, amount, status } = CreateInvoice.parse(
+    Object.fromEntries(formData.entries()),
+  );
+  // {
+  //   customerId: formData.get('customerId'),
+  //   amount: formData.get('amount'),
+  //   status: formData.get('status'),
+  // }
   const amountInCents = amount * 100;
   const date = new Date().toISOString().split('T')[0];
 
@@ -33,4 +36,29 @@ export async function createInvoice(formData: FormData) {
 
   revalidatePath('/dashboard/invoices');
   redirect('/dashboard/invoices');
-}
+};
+
+// Use Zod to update the expected types
+const UpdateInvoice = FormSchema.omit({ id: true, date: true });
+
+export const updateInvoice = async (id: string, formData: FormData) => {
+  const { customerId, amount, status } = UpdateInvoice.parse(
+    Object.fromEntries(formData.entries()),
+  );
+
+  const amountInCents = amount * 100;
+
+  await sql`
+    UPDATE invoices
+    SET customer_id = ${customerId}, amount = ${amountInCents}, status = ${status}
+    WHERE id = ${id}
+  `;
+
+  revalidatePath('/dashboard/invoices');
+  redirect('/dashboard/invoices');
+};
+
+export const deleteInvoice = async (id: string) => {
+  await sql`DELETE FROM invoices WHERE id = ${id}`;
+  revalidatePath('/dashboard/invoices');
+};
